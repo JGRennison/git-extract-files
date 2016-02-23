@@ -1,0 +1,224 @@
+#!/usr/bin/env perl
+
+############################################################################
+# FILE:                git-split-files                                     #
+# DESCRIPTION:         Creates a new history of the current branch         #
+#                      containing only the specified files/directories     #
+# AUTHOR:              Jonathan G. Rennison <j.g.rennison@gmail.com>       #
+# LICENSE:             New BSD License, see LICENSE.txt                    #
+#                                                                          #
+# Copyright © Jonathan G. Rennison 2016                                    #
+############################################################################
+
+use strict;
+use warnings;
+
+use Proc::Hevy;
+use Getopt::Long;
+
+sub usage {
+	my ($fh, $retcode) = @_;
+	$fh //= \*STDERR;
+	$retcode //= 1;
+	print $fh <<'EOF';
+usage: git split-files [options] <files...>
+
+    -m, --move <from:to>     move files from absolute path 'from' to 'to'.
+    -b, --branch <branch>    create a new branch pointing to the new commit
+    -v, --verbose            be verbose
+    -h, -?, --help           show this help
+
+Creates a new history of the current branch, conataining
+only the specified files/directories.
+The new commit hash is written to STDOUT.
+
+EOF
+	exit $retcode;
+}
+
+my ($help, @move_strs, @moves, $branch);
+my $verbose = 0;
+
+Getopt::Long::Configure("no_auto_abbrev", "bundling");
+GetOptions (
+	"move|m=s"     => \@move_strs,
+	"branch|b=s"   => \$branch,
+	"help|h|?"     => \$help,
+	"verbose|v+"   => \$verbose,
+) or usage();
+usage(\*STDOUT, 0) if $help;
+
+usage() unless scalar @ARGV;
+
+my @paths = (@ARGV);
+
+for (@move_strs) {
+	my @sp = split(':', $_);
+	if (scalar @sp != 2 || !length $sp[0] || !length $sp[1]) {
+		print STDERR "'$_' is not a valid move\n";
+		exit 1;
+	}
+	push @moves, {
+		from => $sp[0],
+		to   => $sp[1],
+	};
+}
+
+my $log_str;
+my $status_rev_log = exec_wrapper(
+	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%B%x00%x00%x00 -z --), @paths],
+	stdout  => \$log_str,
+	stderr  => \*STDERR,
+);
+exit($status_rev_log << 8) if $status_rev_log;
+
+my @revs;
+my %seen_parents;
+for my $rev_str (split(/\000{4}/, $log_str)) {
+	my ($hash, $parents, $author_name, $author_email, $author_date, $msg) = split(/\000/, $rev_str, -1);
+	my @parent_revs = split(/\s+/, $parents);
+	push @revs, {
+		hash => $hash,
+		author_name => $author_name,
+		author_email => $author_email,
+		author_date => $author_date,
+		msg => $msg,
+		parents => \@parent_revs,
+	};
+}
+
+my %revs_hash = map { $_->{hash} => 1 } @revs;
+
+if (scalar @revs == 0) {
+	print STDERR "No commits found\n";
+	exit 1;
+}
+
+my (%commit_map, $last_rev);
+
+for my $rev_info (@revs) {
+	my $rev = $rev_info->{hash};
+
+	my @tree_text;
+	for (@paths) {
+		my $tree_line;
+		my $status_ls_tree = exec_wrapper(
+			command => [qw(git ls-tree), $rev, $_],
+			stdout  => \$tree_line,
+			stderr  => \*STDERR,
+		);
+		exit($status_ls_tree << 8) if $status_ls_tree;
+		chomp $tree_line;
+		push @tree_text, $tree_line if length $tree_line;
+	}
+
+	my $tree_hash = make_tree(@tree_text);;
+
+	my @parent_opts;
+	for (@{$rev_info->{parents}}) {
+		push @parent_opts, '-p';
+		if (defined (my $new_parent = $commit_map{$_})) {
+			push @parent_opts, $new_parent;
+		} else {
+			push @parent_opts, $_;
+		}
+	}
+
+	local $ENV{GIT_AUTHOR_DATE} = $rev_info->{author_date};
+	local $ENV{GIT_AUTHOR_NAME} = $rev_info->{author_name};
+	local $ENV{GIT_AUTHOR_EMAIL} = $rev_info->{author_email};
+
+	my $new_rev;
+	my $status_commit = exec_wrapper(
+		command => [qw(git commit-tree), @parent_opts, '-m', $rev_info->{msg}, $tree_hash],
+		stdout  => \$new_rev,
+		stderr  => \*STDERR,
+	);
+	exit($status_commit << 8) if $status_commit;
+	chomp $new_rev;
+
+	$commit_map{$rev} = $new_rev;
+	$last_rev = $new_rev;
+}
+
+
+print "New commit: $last_rev\n";
+
+if (defined $branch) {
+	my $status_branch = exec_wrapper(
+		command => [qw(git update-ref), "refs/heads/$branch", $last_rev, ''],
+		stderr  => \*STDERR,
+	);
+	exit($status_branch << 8) if $status_branch;
+}
+
+exit 0;
+
+# http://stackoverflow.com/a/11505542
+sub to_nested_hash {
+	my $ref   = \shift;
+	my $h     = $$ref;
+	my $value = pop;
+	$ref      = \$$ref->{ $_ } foreach @_;
+	$$ref     = $value;
+	return $h;
+}
+
+sub make_tree_subdir {
+	my ($dir) = @_;
+
+	my $tree_text = '';
+	foreach my $key (keys %{$dir}) {
+		if (ref $dir->{$key} eq 'HASH') {
+			$tree_text .= "040000 tree " . make_tree_subdir($dir->{$key}) . "\t$key\000";
+		} else {
+			$tree_text .= $dir->{$key} . "\000";
+		}
+	}
+
+	my $tree_hash;
+	my $status_mktree = exec_wrapper(
+		command => [qw(git mktree -z)],
+		stdin   => $tree_text,
+		stdout  => \$tree_hash,
+		stderr  => \*STDERR,
+	);
+	exit($status_mktree << 8) if $status_mktree;
+	chomp $tree_hash;
+	return $tree_hash;
+}
+
+sub make_tree {
+	my @objs = @_;
+
+	my $tree = {};
+	for (@objs) {
+		my ($mode, $type, $hash, $name) = split(/\s+/, $_);
+		for (@moves) {
+			last if $name =~ s/^@{[ $_->{from} ]}/@{[ $_->{to} ]}/;
+		}
+		my @path_parts = split('/', $name);
+		my $str = "$mode $type $hash\t" . $path_parts[-1];
+		to_nested_hash($tree, @path_parts, $str);
+	}
+
+	return make_tree_subdir($tree);
+}
+
+sub exec_wrapper {
+	my %opts = @_;
+	if ($verbose >= 1) {
+		my $command;
+		eval {
+			require String::ShellQuote;
+			$command = String::ShellQuote::shell_quote(@{ $opts{command} });
+		};
+		$command = join(" ", @{ $opts{command} }) unless defined $command;
+		print STDERR "Executing: $command\n";
+	}
+	my $status = Proc::Hevy->exec(%opts);
+	if ($verbose >= 2 && defined $opts{stdout} && ref $opts{stdout} eq "SCALAR") {
+		print STDERR "STDOUT: '" . ${ $opts{stdout} } . "'\n";
+	}
+	return $status;
+}
