@@ -169,6 +169,10 @@ sub make_tree_subdir {
 		}
 	}
 
+	if ($verbose >= 2) {
+		print STDERR "git mktree STDIN: \n" . join("\n", split(/\000/, $tree_text)) . "\n\n";
+	}
+
 	my $tree_hash;
 	my $status_mktree = exec_wrapper(
 		command => [qw(git mktree -z)],
