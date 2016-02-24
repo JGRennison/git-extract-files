@@ -193,7 +193,7 @@ sub make_tree {
 
 	my $tree = {};
 	for (@objs) {
-		my ($mode, $type, $hash, $name) = split(/\s+/, $_);
+		my ($mode, $type, $hash, $name) = split(/\s+/, $_, 4);
 		for (@moves) {
 			last if $name =~ s/^@{[ $_->{from} ]}/@{[ $_->{to} ]}/;
 		}
