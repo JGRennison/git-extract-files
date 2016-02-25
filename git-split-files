@@ -23,12 +23,12 @@ sub usage {
 	print $fh <<'EOF';
 usage: git split-files [options] <files...>
 
-    -m, --move <from:to>     move files from absolute path 'from' to 'to'.
-    -b, --branch <branch>    create a new branch pointing to the new commit
-    -v, --verbose            be verbose
-    -h, -?, --help           show this help
+    -m, --move <from:to>     Move files from absolute path 'from' to 'to'
+    -b, --branch <branch>    Create a new branch pointing to the new commit
+    -v, --verbose            Be verbose
+    -h, -?, --help           Show this help
 
-Creates a new history of the current branch, conataining
+Creates a new history of the current branch, containing
 only the specified files/directories.
 The new commit hash is written to STDOUT.
 
