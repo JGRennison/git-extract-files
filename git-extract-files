@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 ############################################################################
-# FILE:                git-split-files                                     #
+# FILE:                git-extract-files                                   #
 # DESCRIPTION:         Creates a new history of the current branch         #
 #                      containing only the specified files/directories     #
 # AUTHOR:              Jonathan G. Rennison <j.g.rennison@gmail.com>       #
@@ -21,7 +21,7 @@ sub usage {
 	$fh //= \*STDERR;
 	$retcode //= 1;
 	print $fh <<'EOF';
-usage: git split-files [options] <files...>
+usage: git extract-files [options] <files...>
 
     -m, --move <from:to>     Move files from absolute path 'from' to 'to'
     -b, --branch <branch>    Create a new branch pointing to the new commit

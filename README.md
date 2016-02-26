@@ -1,12 +1,12 @@
-## git-split-files
-**Creates a new history of the current branch containing only the specified files/directories**  
+## git-extract-files
+**Create a new history of the current branch containing only the specified files/directories**  
 
 ### Usage:
 
-    git split-files [options] files...
+    git extract-files [options] files...
 
 This creates a new history of the current branch, containing only the specified files/directories.  
-The hash of the newest commit is written to STDOUT, and optionally a branch is created which points to it.  
+The commit hash of the new history is written to STDOUT, and optionally a branch is created which points to it.  
 Optionally, files/directories may be moved to a different path within the new history.
 
 ### Options:
@@ -26,7 +26,7 @@ Optionally, files/directories may be moved to a different path within the new hi
   * Getopt::Long
 
 ### URLs:
-This project is hosted at https://github.com/JGRennison/git-split-files
+This project is hosted at https://github.com/JGRennison/git-extract-files
 
 ### License:
 New BSD License, see LICENSE.txt
