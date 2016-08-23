@@ -24,6 +24,7 @@ sub usage {
 usage: git extract-files [options] <files...>
 
     -m, --move <from:to>     Move files from absolute path 'from' to 'to'
+    -x, --exclude <path>     Exclude files from absolute path
     -b, --branch <branch>    Create a new branch pointing to the new commit
     -v, --verbose            Be verbose
     -h, -?, --help           Show this help
@@ -32,16 +33,20 @@ Creates a new history of the current branch, containing
 only the specified files/directories.
 The new commit hash is written to STDOUT.
 
+Excludes are applied before moves.
+Only the first matching move for an individual file is applied.
+
 EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, $branch);
+my ($help, @move_strs, @moves, @deletes, $branch);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
 GetOptions (
 	"move|m=s"     => \@move_strs,
+	"exclude|x=s"  => \@deletes,
 	"branch|b=s"   => \$branch,
 	"help|h|?"     => \$help,
 	"verbose|v+"   => \$verbose,
@@ -189,8 +194,11 @@ sub make_tree {
 	my @objs = @_;
 
 	my $tree = {};
-	for (@objs) {
+	OBJ: for (@objs) {
 		my ($mode, $type, $hash, $name) = split(/\s+/, $_, 4);
+		for (@deletes) {
+			next OBJ if $name =~ /^$_(?:\/|$)/;
+		}
 		for (@moves) {
 			last if $name =~ s/^@{[ $_->{from} ]}(\/|$)/@{[ $_->{to} ]}$1/;
 		}
