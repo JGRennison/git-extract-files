@@ -150,7 +150,7 @@ for my $rev_info (@revs) {
 }
 
 
-print "New commit: $last_rev\n";
+print "$last_rev\n";
 
 if (defined $branch) {
 	my $status_branch = exec_wrapper(
