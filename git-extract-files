@@ -197,10 +197,10 @@ sub make_tree {
 	OBJ: for (@objs) {
 		my ($mode, $type, $hash, $name) = split(/\s+/, $_, 4);
 		for (@deletes) {
-			next OBJ if $name =~ /^$_(?:\/|$)/;
+			next OBJ if $name =~ /^\Q$_\E(?:\/|$)/;
 		}
 		for (@moves) {
-			last if $name =~ s/^@{[ $_->{from} ]}(\/|$)/@{[ $_->{to} ]}$1/;
+			last if $name =~ s/^\Q@{[ $_->{from} ]}\E(\/|$)/@{[ $_->{to} ]}$1/;
 		}
 		my @path_parts = split('/', $name);
 		my $last_path_part = pop @path_parts;
