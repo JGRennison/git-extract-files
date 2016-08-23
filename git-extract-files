@@ -26,6 +26,7 @@ usage: git extract-files [options] <files...>
     -m, --move <from:to>     Move files from absolute path 'from' to 'to'
     -x, --exclude <path>     Exclude files from absolute path
     -b, --branch <branch>    Create a new branch pointing to the new commit
+    -u, --until <rev>        Do not re-write commits reachable from 'rev'
     -v, --verbose            Be verbose
     -h, -?, --help           Show this help
 
@@ -40,7 +41,7 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
@@ -48,6 +49,7 @@ GetOptions (
 	"move|m=s"     => \@move_strs,
 	"exclude|x=s"  => \@deletes,
 	"branch|b=s"   => \$branch,
+	"until|u=s"    => \@until_strs,
 	"help|h|?"     => \$help,
 	"verbose|v+"   => \$verbose,
 ) or usage();
@@ -73,9 +75,21 @@ for (@move_strs) {
 	};
 }
 
+for (@until_strs) {
+	my $rev;
+	my $status_rev_parse = exec_wrapper(
+		command => [qw(git rev-parse --verify), "$_^{commit}"],
+		stdout  => \$rev,
+		stderr  => \*STDERR,
+	);
+	exit($status_rev_parse << 8) if $status_rev_parse;
+	chomp $rev;
+	push @untils, "^$rev";
+}
+
 my $log_str;
 my $status_rev_log = exec_wrapper(
-	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%B%x00%x00%x00 -z --), @paths],
+	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%B%x00%x00%x00 -z @), @untils, '--', @paths],
 	stdout  => \$log_str,
 	stderr  => \*STDERR,
 );

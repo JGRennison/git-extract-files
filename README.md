@@ -19,6 +19,9 @@ Optionally, files/directories may be excluded or moved to a different path withi
   Excludes are applied before moves.
 * -b, --branch *branch*  
   Create a new branch pointing to the new commit
+* -u, --until *rev*  
+  Do not re-write commits reachable from 'rev'.  
+  This may be used more than once.
 * -v, --verbose  
   Be verbose
 * -h, -?, --help  
