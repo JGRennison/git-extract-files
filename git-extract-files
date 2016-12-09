@@ -254,15 +254,15 @@ sub make_tree {
 
 		my $subtree = $tree;
 		for (@path_parts) {
-			if (exists $tree->{$_}) {
-				if(ref $tree->{$_} ne 'HASH') {
+			if (exists $subtree->{$_}) {
+				if(ref $subtree->{$_} ne 'HASH') {
 					print STDERR "Attempted to map more than one file/directory to path: $name\n";
 					exit 1;
 				}
 			} else {
-				$tree->{$_} = {};
+				$subtree->{$_} = {};
 			}
-			$subtree = $tree->{$_};
+			$subtree = $subtree->{$_};
 		}
 		if (exists $subtree->{$last_path_part}) {
 			print STDERR "Attempted to map more than one file/directory to path: $name\n";
