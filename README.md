@@ -7,7 +7,8 @@
 
 This creates a new history of the current branch, containing only the specified files/directories.  
 The commit hash of the new history is written to STDOUT, and optionally a branch is created which points to it.  
-Optionally, files/directories may be excluded or moved to a different path within the new history.
+Optionally, files/directories may be excluded or moved to a different path within the new history.  
+This does not touch the index or working tree, and is significanty more performant than git filter-branch.
 
 ### Options:
 * -m, --move *from:to*  
@@ -22,6 +23,8 @@ Optionally, files/directories may be excluded or moved to a different path withi
 * -u, --until *rev*  
   Do not re-write commits reachable from 'rev'.  
   This may be used more than once.
+* -n, --no-prune  
+  Don't prune empty commits which leave the tree untouched, this keeps all commits in the input.
 * -v, --verbose  
   Be verbose
 * -h, -?, --help  
