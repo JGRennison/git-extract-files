@@ -93,7 +93,7 @@ push @untils, '--sparse', '--full-history' if $no_prune;
 
 my $log_str;
 my $status_rev_log = exec_wrapper(
-	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%B%x00%x00%x00 -z @), @untils, '--', @paths],
+	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%cn%x00%ce%x00%ci%x00%B%x00%x00%x00 -z @), @untils, '--', @paths],
 	stdout  => \$log_str,
 	stderr  => \*STDERR,
 );
@@ -102,13 +102,16 @@ exit($status_rev_log << 8) if $status_rev_log;
 my @revs;
 my %seen_parents;
 for my $rev_str (split(/\000{4}/, $log_str)) {
-	my ($hash, $parents, $author_name, $author_email, $author_date, $msg) = split(/\000/, $rev_str, -1);
+	my ($hash, $parents, $author_name, $author_email, $author_date, $committer_name, $committer_email, $committer_date, $msg) = split(/\000/, $rev_str, -1);
 	my @parent_revs = split(/\s+/, $parents);
 	push @revs, {
 		hash => $hash,
 		author_name => $author_name,
 		author_email => $author_email,
 		author_date => $author_date,
+		committer_name => $committer_name,
+		committer_email => $committer_email,
+		committer_date => $committer_date,
 		msg => $msg,
 		parents => \@parent_revs,
 	};
@@ -178,6 +181,9 @@ for my $rev_info (@revs) {
 	local $ENV{GIT_AUTHOR_DATE} = $rev_info->{author_date};
 	local $ENV{GIT_AUTHOR_NAME} = $rev_info->{author_name};
 	local $ENV{GIT_AUTHOR_EMAIL} = $rev_info->{author_email};
+	local $ENV{GIT_COMMITTER_DATE} = $rev_info->{committer_date};
+	local $ENV{GIT_COMMITTER_NAME} = $rev_info->{committer_name};
+	local $ENV{GIT_COMMITTER_EMAIL} = $rev_info->{committer_email};
 
 	my $new_rev;
 	my $status_commit = exec_wrapper(
