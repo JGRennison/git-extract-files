@@ -25,6 +25,8 @@ This does not touch the index or working tree, and is significanty more performa
   This may be used more than once.
 * -n, --no-prune  
   Don't prune empty commits which leave the tree untouched, this keeps all commits in the input.
+* -c, --keep-committer  
+  Preserve committer name, email and date
 * -v, --verbose  
   Be verbose
 * -h, -?, --help  

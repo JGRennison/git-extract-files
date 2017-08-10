@@ -28,6 +28,7 @@ usage: git extract-files [options] <files...>
     -b, --branch <branch>    Create a new branch pointing to the new commit
     -u, --until <rev>        Do not re-write commits reachable from 'rev'
     -n, --no-prune           Don't prune empty commits which leave the tree untouched
+    -c, --keep-committer     Preserve committer name, email and date
     -v, --verbose            Be verbose
     -h, -?, --help           Show this help
 
@@ -42,7 +43,7 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
@@ -52,6 +53,7 @@ GetOptions (
 	"branch|b=s"   => \$branch,
 	"until|u=s"    => \@until_strs,
 	"no-prune|n"   => \$no_prune,
+	"keep-committer|c" => \$keep_committer,
 	"help|h|?"     => \$help,
 	"verbose|v+"   => \$verbose,
 ) or usage();
@@ -181,9 +183,9 @@ for my $rev_info (@revs) {
 	local $ENV{GIT_AUTHOR_DATE} = $rev_info->{author_date};
 	local $ENV{GIT_AUTHOR_NAME} = $rev_info->{author_name};
 	local $ENV{GIT_AUTHOR_EMAIL} = $rev_info->{author_email};
-	local $ENV{GIT_COMMITTER_DATE} = $rev_info->{committer_date};
-	local $ENV{GIT_COMMITTER_NAME} = $rev_info->{committer_name};
-	local $ENV{GIT_COMMITTER_EMAIL} = $rev_info->{committer_email};
+	local $ENV{GIT_COMMITTER_DATE} = $rev_info->{committer_date} if $keep_committer;
+	local $ENV{GIT_COMMITTER_NAME} = $rev_info->{committer_name} if $keep_committer;
+	local $ENV{GIT_COMMITTER_EMAIL} = $rev_info->{committer_email} if $keep_committer;
 
 	my $new_rev;
 	my $status_commit = exec_wrapper(
