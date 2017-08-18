@@ -77,6 +77,8 @@ for my $list_file (@list_files) {
 	close $file_handle;
 }
 
+@paths = array_filter_uniq(@paths);
+
 for (@move_strs) {
 	my @sp = split(':', $_, -1);
 	if (scalar @sp != 2) {
@@ -156,6 +158,8 @@ for my $rev_info (@revs) {
 		exit($status_ls_tree << 8) if $status_ls_tree;
 		push @tree_text, split(/\000/, $tree_line) if length $tree_line;
 	}
+
+	@tree_text = array_filter_uniq(@tree_text);
 
 	my $tree_hash = make_tree(@tree_text);
 
@@ -312,4 +316,9 @@ sub exec_wrapper {
 		print STDERR "STDOUT: '" . (${ $opts{stdout} } // '') . "'\n";
 	}
 	return $status;
+}
+
+sub array_filter_uniq {
+	my %seen;
+	grep !$seen{$_}++, @_;
 }
