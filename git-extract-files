@@ -107,7 +107,7 @@ for (@until_strs) {
 
 push @untils, '--sparse', '--full-history' if $no_prune;
 
-my $log_str;
+my $log_str = '';
 my $status_rev_log = exec_wrapper(
 	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%cn%x00%ce%x00%ci%x00%B%x00%x00%x00 -z @), @untils, '--', @paths],
 	stdout  => \$log_str,
