@@ -23,6 +23,7 @@ sub usage {
 	print $fh <<'EOF';
 usage: git extract-files [options] <files...>
 
+    -l, --list-file <path>   Extract files enumerated in list file
     -m, --move <from:to>     Move files from absolute path 'from' to 'to'
     -x, --exclude <path>     Exclude files from absolute path
     -b, --branch <branch>    Create a new branch pointing to the new commit
@@ -43,11 +44,12 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer, @list_files);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
 GetOptions (
+	"list-file|l=s"    => \@list_files,
 	"move|m=s"     => \@move_strs,
 	"exclude|x=s"  => \@deletes,
 	"branch|b=s"   => \$branch,
@@ -59,9 +61,21 @@ GetOptions (
 ) or usage();
 usage(\*STDOUT, 0) if $help;
 
-usage() unless scalar @ARGV;
+usage() unless (scalar @ARGV || scalar @list_files);
 
 my @paths = (@ARGV);
+
+for my $list_file (@list_files) {
+	open my $file_handle, "<", $list_file or die "Could not open $list_file: $!\n";
+
+	# TODO: Convert relative to absolute paths.
+	while (<$file_handle>) {
+		chomp;
+		push @paths, $_ if length $_;
+	}
+
+	close $file_handle;
+}
 
 for (@move_strs) {
 	my @sp = split(':', $_, -1);

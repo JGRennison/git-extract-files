@@ -11,6 +11,9 @@ Optionally, files/directories may be excluded or moved to a different path withi
 This does not touch the index or working tree, and is significanty more performant than git filter-branch.
 
 ### Options:
+* -l, --list-file <path>  
+  Extract files enumerated in list file, one file name per line.  
+  This may be used more than once.
 * -m, --move *from:to*  
   Move files from absolute path 'from' to 'to'.  
   This may be used more than once. However only the first matching move for an individual file is applied.
