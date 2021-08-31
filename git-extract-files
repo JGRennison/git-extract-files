@@ -274,6 +274,7 @@ sub make_tree {
 		for (@moves) {
 			last if $name =~ s/^\Q@{[ $_->{from} ]}\E(\/|$)/@{[ $_->{to} ]}$1/;
 		}
+		$name =~ s|^/||; # trim leading slash
 		my @path_parts = split('/', $name);
 		my $last_path_part = pop @path_parts;
 		my $str = "$mode $type $hash\t" . $last_path_part;
