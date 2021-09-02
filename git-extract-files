@@ -29,6 +29,7 @@ usage: git extract-files [options] <files...>
     -x, --exclude <path>     Exclude files from absolute path
     -b, --branch <branch>    Create a new branch pointing to the new commit
     -u, --until <rev>        Do not re-write commits reachable from 'rev'
+    -r, --remove <rev>       Remove commits reachable from 'rev'
     -n, --no-prune           Don't prune empty commits which leave the tree untouched
     -c, --keep-committer     Preserve committer name, email and date
     -v, --verbose            Be verbose
@@ -45,7 +46,7 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer, @list_files, $source);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, @remove_strs, $no_prune, $keep_committer, @list_files, $source);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
@@ -56,6 +57,7 @@ GetOptions (
 	"exclude|x=s"  => \@deletes,
 	"branch|b=s"   => \$branch,
 	"until|u=s"    => \@until_strs,
+	"remove|r=s"   => \@remove_strs,
 	"no-prune|n"   => \$no_prune,
 	"keep-committer|c" => \$keep_committer,
 	"help|h|?"     => \$help,
@@ -122,6 +124,20 @@ for (@until_strs) {
 	push @untils, "^$rev";
 }
 
+my %remove_commits;
+for (@remove_strs) {
+	my $rev;
+	my $status_rev_parse = exec_wrapper(
+		command => [qw(git rev-parse --verify), "$_^{commit}"],
+		stdout  => \$rev,
+		stderr  => \*STDERR,
+	);
+	exit($status_rev_parse << 8) if $status_rev_parse;
+	chomp $rev;
+	push @untils, "^$rev";
+	$remove_commits{$rev} = 1;
+}
+
 push @untils, '--sparse', '--full-history' if $no_prune;
 
 my $log_str = '';
@@ -133,10 +149,12 @@ my $status_rev_log = exec_wrapper(
 exit($status_rev_log << 8) if $status_rev_log;
 
 my @revs;
-my %seen_parents;
 for my $rev_str (split(/\000{4}/, $log_str)) {
 	my ($hash, $parents, $author_name, $author_email, $author_date, $committer_name, $committer_email, $committer_date, $msg) = split(/\000/, $rev_str, -1);
 	my @parent_revs = split(/\s+/, $parents);
+	if (scalar %remove_commits) {
+		@parent_revs = grep { !$remove_commits{$_} } @parent_revs;
+	}
 	push @revs, {
 		hash => $hash,
 		author_name => $author_name,
@@ -149,8 +167,6 @@ for my $rev_str (split(/\000{4}/, $log_str)) {
 		parents => \@parent_revs,
 	};
 }
-
-my %revs_hash = map { $_->{hash} => 1 } @revs;
 
 if (scalar @revs == 0) {
 	print STDERR "No commits found\n";
