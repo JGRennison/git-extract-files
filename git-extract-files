@@ -24,6 +24,7 @@ sub usage {
 usage: git extract-files [options] <files...>
 
     -l, --list-file <path>   Extract files enumerated in list file
+    -s, --source <ref>       Use 'ref' instead of HEAD as the source commit
     -m, --move <from:to>     Move files from absolute path 'from' to 'to'
     -x, --exclude <path>     Exclude files from absolute path
     -b, --branch <branch>    Create a new branch pointing to the new commit
@@ -44,12 +45,13 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer, @list_files);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, $no_prune, $keep_committer, @list_files, $source);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
 GetOptions (
 	"list-file|l=s"    => \@list_files,
+	"source|s=s"   => \$source,
 	"move|m=s"     => \@move_strs,
 	"exclude|x=s"  => \@deletes,
 	"branch|b=s"   => \$branch,
@@ -64,6 +66,19 @@ usage(\*STDOUT, 0) if $help;
 usage() unless (scalar @ARGV || scalar @list_files);
 
 my @paths = (@ARGV);
+
+my $source_commit;
+if (defined $source) {
+	my $status_source = exec_wrapper(
+		command => [qw(git rev-parse --verify), $source],
+		stdout  => \$source_commit,
+		stderr  => \*STDERR,
+	);
+	exit($status_source << 8) if $status_source;
+	chomp $source_commit;
+} else {
+	$source_commit = "@";
+}
 
 for my $list_file (@list_files) {
 	open my $file_handle, "<", $list_file or die "Could not open $list_file: $!\n";
@@ -111,7 +126,7 @@ push @untils, '--sparse', '--full-history' if $no_prune;
 
 my $log_str = '';
 my $status_rev_log = exec_wrapper(
-	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%cn%x00%ce%x00%ci%x00%B%x00%x00%x00 -z @), @untils, '--', @paths],
+	command => [qw(git log --parents --reverse --pretty=tformat:%H%x00%P%x00%an%x00%ae%x00%ai%x00%cn%x00%ce%x00%ci%x00%B%x00%x00%x00 -z), $source_commit, @untils, '--', @paths],
 	stdout  => \$log_str,
 	stderr  => \*STDERR,
 );
