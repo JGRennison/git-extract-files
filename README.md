@@ -14,6 +14,8 @@ This does not touch the index or working tree, and is significanty more performa
 * -l, --list-file *path*  
   Extract files enumerated in list file, one file name per line.  
   This may be used more than once.
+* -s, --source *ref*  
+  Use 'ref' instead of HEAD as the source commit.
 * -m, --move *from:to*  
   Move files from absolute path 'from' to 'to'.  
   This may be used more than once. However only the first matching move for an individual file is applied.
@@ -25,6 +27,9 @@ This does not touch the index or working tree, and is significanty more performa
   Create a new branch pointing to the new commit
 * -u, --until *rev*  
   Do not re-write commits reachable from 'rev'.  
+  This may be used more than once.
+* -r, --remove *rev*  
+  Remove commits reachable from 'rev'.  
   This may be used more than once.
 * -n, --no-prune  
   Don't prune empty commits which leave the tree untouched, this keeps all commits in the input.
