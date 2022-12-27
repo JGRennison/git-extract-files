@@ -30,6 +30,7 @@ usage: git extract-files [options] <files...>
     -b, --branch <branch>    Create a new branch pointing to the new commit
     -u, --until <rev>        Do not re-write commits reachable from 'rev'
     -r, --remove <rev>       Remove commits reachable from 'rev'
+    -f, --fixup <rev>        Apply commit 'rev' as a fixup (if it has one parent)
     -n, --no-prune           Don't prune empty commits which leave the tree untouched
     -c, --keep-committer     Preserve committer name, email and date
     -v, --verbose            Be verbose
@@ -46,7 +47,7 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, @remove_strs, $no_prune, $keep_committer, @list_files, $source);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, @remove_strs, @fixup_strs, $no_prune, $keep_committer, @list_files, $source);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
@@ -58,6 +59,7 @@ GetOptions (
 	"branch|b=s"   => \$branch,
 	"until|u=s"    => \@until_strs,
 	"remove|r=s"   => \@remove_strs,
+	"fixup|f=s"    => \@fixup_strs,
 	"no-prune|n"   => \$no_prune,
 	"keep-committer|c" => \$keep_committer,
 	"help|h|?"     => \$help,
@@ -138,6 +140,19 @@ for (@remove_strs) {
 	$remove_commits{$rev} = 1;
 }
 
+my %fixup_commits;
+for (@fixup_strs) {
+	my $rev;
+	my $status_rev_parse = exec_wrapper(
+		command => [qw(git rev-parse --verify), "$_^{commit}"],
+		stdout  => \$rev,
+		stderr  => \*STDERR,
+	);
+	exit($status_rev_parse << 8) if $status_rev_parse;
+	chomp $rev;
+	$fixup_commits{$rev} = 1;
+}
+
 push @untils, '--sparse', '--full-history' if $no_prune;
 
 my $log_str = '';
@@ -155,8 +170,24 @@ for my $rev_str (split(/\000{4}/, $log_str)) {
 	if (scalar %remove_commits) {
 		@parent_revs = grep { !$remove_commits{$_} } @parent_revs;
 	}
+	my $prune = 0;
+	if ($fixup_commits{$hash}) {
+		if (scalar @parent_revs != 1) {
+			print STDERR "Fixup: $hash has wrong number of parents: " . scalar @parent_revs . "\n";
+			exit 1;
+		}
+		my $parent = $parent_revs[0];
+		if (!(scalar @revs) || $revs[-1]->{hash} ne $parent) {
+			print STDERR "Fixup: $hash has no usable parent to apply onto\n";
+			exit 1;
+		}
+		$revs[-1]->{hash_for_tree} = $hash;
+		delete $fixup_commits{$hash};
+		$prune = 1;
+	}
 	push @revs, {
 		hash => $hash,
+		hash_for_tree => $hash,
 		author_name => $author_name,
 		author_email => $author_email,
 		author_date => $author_date,
@@ -165,6 +196,7 @@ for my $rev_str (split(/\000{4}/, $log_str)) {
 		committer_date => $committer_date,
 		msg => $msg,
 		parents => \@parent_revs,
+		force_prune => $prune,
 	};
 }
 
@@ -173,16 +205,22 @@ if (scalar @revs == 0) {
 	exit 1;
 }
 
+if (scalar %fixup_commits) {
+	print STDERR "Could not use commits as fixups: " . join("\n", keys %fixup_commits) . "\n";
+	exit 1;
+}
+
 my (%commit_map, $last_rev);
 
 for my $rev_info (@revs) {
 	my $rev = $rev_info->{hash};
+	my $rev_for_tree = $rev_info->{hash_for_tree};
 
 	my @tree_text;
 	for (@paths) {
 		my $tree_line;
 		my $status_ls_tree = exec_wrapper(
-			command => [qw(git ls-tree -r -z), $rev, $_],
+			command => [qw(git ls-tree -r -z), $rev_for_tree, $_],
 			stdout  => \$tree_line,
 			stderr  => \*STDERR,
 		);
@@ -194,7 +232,7 @@ for my $rev_info (@revs) {
 
 	my $tree_hash = make_tree(@tree_text);
 
-	if (!$no_prune && scalar @{$rev_info->{parents}} == 1) {
+	if ($rev_info->{force_prune} || (!$no_prune && scalar @{$rev_info->{parents}} == 1)) {
 		my ($parent_rev, $parent_tree);
 		if (defined (my $new_parent = $commit_map{$rev_info->{parents}->[0]})) {
 			$parent_rev = $new_parent->{rev};

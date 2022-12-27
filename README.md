@@ -31,6 +31,9 @@ This does not touch the index or working tree, and is significanty more performa
 * -r, --remove *rev*  
   Remove commits reachable from 'rev'.  
   This may be used more than once.
+* -f, --fixup *rev*  
+  Apply commit 'rev' as a fixup (if it has one parent).  
+  This may be used more than once.
 * -n, --no-prune  
   Don't prune empty commits which leave the tree untouched, this keeps all commits in the input.
 * -c, --keep-committer  
