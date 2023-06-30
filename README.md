@@ -38,6 +38,8 @@ This does not touch the index or working tree, and is significanty more performa
   Don't prune empty commits which leave the tree untouched, this keeps all commits in the input.
 * -c, --keep-committer  
   Preserve committer name, email and date
+* -p, --add-parent *rev:parent*  
+  Add a new parent to commit 'rev'
 * -v, --verbose  
   Be verbose
 * -h, -?, --help  

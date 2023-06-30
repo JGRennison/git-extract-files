@@ -33,6 +33,7 @@ usage: git extract-files [options] <files...>
     -f, --fixup <rev>        Apply commit 'rev' as a fixup (if it has one parent)
     -n, --no-prune           Don't prune empty commits which leave the tree untouched
     -c, --keep-committer     Preserve committer name, email and date
+    -p, --add-parent <rev:parent> Add a new parent to commit 'rev'
     -v, --verbose            Be verbose
     -h, -?, --help           Show this help
 
@@ -47,7 +48,7 @@ EOF
 	exit $retcode;
 }
 
-my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, @remove_strs, @fixup_strs, $no_prune, $keep_committer, @list_files, $source);
+my ($help, @move_strs, @moves, @deletes, $branch, @until_strs, @untils, @remove_strs, @fixup_strs, $no_prune, $keep_committer, @add_parent_strs, @list_files, $source);
 my $verbose = 0;
 
 Getopt::Long::Configure("no_auto_abbrev", "bundling");
@@ -62,6 +63,7 @@ GetOptions (
 	"fixup|f=s"    => \@fixup_strs,
 	"no-prune|n"   => \$no_prune,
 	"keep-committer|c" => \$keep_committer,
+	"add-parent|p=s" => \@add_parent_strs,
 	"help|h|?"     => \$help,
 	"verbose|v+"   => \$verbose,
 ) or usage();
@@ -126,6 +128,24 @@ for (@fixup_strs) {
 	$fixup_commits{$rev} = 1;
 }
 
+my %add_parents;
+for (@add_parent_strs) {
+	my @sp = split(':', $_, -1);
+	if (scalar @sp != 2) {
+		print STDERR "'$_' is not a valid add-parent\n";
+		exit 1;
+	}
+	my $rev = get_commit_id($sp[0] . "^{commit}");
+	my $new_parent = get_commit_id($sp[1] . "^{commit}");
+
+	my $list = $add_parents{$rev};
+	if (defined $list) {
+		push @$list, $new_parent;
+	} else {
+		$add_parents{$rev} = [ $new_parent ];
+	}
+}
+
 push @untils, '--sparse', '--full-history' if $no_prune;
 
 my $log_str = '';
@@ -157,6 +177,14 @@ for my $rev_str (split(/\000{4}/, $log_str)) {
 		$revs[-1]->{hash_for_tree} = $hash;
 		delete $fixup_commits{$hash};
 		$prune = 1;
+	}
+	my $add_parents_revs = $add_parents{$hash};
+	if (defined $add_parents_revs) {
+		if ($prune) {
+			print STDERR "Warning: Cannot add parents to $hash because it was applied as a fixup\n";
+		} else {
+			push @parent_revs, @{ $add_parents_revs };
+		}
 	}
 	push @revs, {
 		hash => $hash,
