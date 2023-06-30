@@ -73,13 +73,7 @@ my @paths = (@ARGV);
 
 my $source_commit;
 if (defined $source) {
-	my $status_source = exec_wrapper(
-		command => [qw(git rev-parse --verify), $source],
-		stdout  => \$source_commit,
-		stderr  => \*STDERR,
-	);
-	exit($status_source << 8) if $status_source;
-	chomp $source_commit;
+	$source_commit = get_commit_id($source);
 } else {
 	$source_commit = "@";
 }
@@ -115,41 +109,20 @@ for (@move_strs) {
 }
 
 for (@until_strs) {
-	my $rev;
-	my $status_rev_parse = exec_wrapper(
-		command => [qw(git rev-parse --verify), "$_^{commit}"],
-		stdout  => \$rev,
-		stderr  => \*STDERR,
-	);
-	exit($status_rev_parse << 8) if $status_rev_parse;
-	chomp $rev;
+	my $rev = get_commit_id("$_^{commit}");
 	push @untils, "^$rev";
 }
 
 my %remove_commits;
 for (@remove_strs) {
-	my $rev;
-	my $status_rev_parse = exec_wrapper(
-		command => [qw(git rev-parse --verify), "$_^{commit}"],
-		stdout  => \$rev,
-		stderr  => \*STDERR,
-	);
-	exit($status_rev_parse << 8) if $status_rev_parse;
-	chomp $rev;
+	my $rev = get_commit_id("$_^{commit}");
 	push @untils, "^$rev";
 	$remove_commits{$rev} = 1;
 }
 
 my %fixup_commits;
 for (@fixup_strs) {
-	my $rev;
-	my $status_rev_parse = exec_wrapper(
-		command => [qw(git rev-parse --verify), "$_^{commit}"],
-		stdout  => \$rev,
-		stderr  => \*STDERR,
-	);
-	exit($status_rev_parse << 8) if $status_rev_parse;
-	chomp $rev;
+	my $rev = get_commit_id("$_^{commit}");
 	$fixup_commits{$rev} = 1;
 }
 
@@ -391,4 +364,18 @@ sub exec_wrapper {
 sub array_filter_uniq {
 	my %seen;
 	grep !$seen{$_}++, @_;
+}
+
+sub get_commit_id {
+	my ($in) = @_;
+
+	my $rev;
+	my $status_rev_parse = exec_wrapper(
+		command => [qw(git rev-parse --verify), $in],
+		stdout  => \$rev,
+		stderr  => \*STDERR,
+	);
+	exit($status_rev_parse << 8) if $status_rev_parse;
+	chomp $rev;
+	return $rev;
 }
